@@ -1,6 +1,4 @@
 import Text.Regex.TDFA ((=~), AllMatches(getAllMatches), AllTextMatches (getAllTextMatches))
-import Data.Maybe (fromMaybe)
-import Data.List (find)
 
 int :: String -> Int
 int = read
@@ -29,11 +27,17 @@ mulIndecies = opIndecies mulOperation
 extractOperations :: String -> [String]
 extractOperations x = getAllTextMatches (x =~ mulOperation)
 
-isEnabled :: [Int] -> [Int] -> Int -> Bool
-isEnabled ren rdis x = fromMaybe 0 (find (<x) ren) >= fromMaybe 0 (find (<x) rdis)
-
-maskEnableds :: [Int] -> [Int] -> [Int] -> [Bool]
-maskEnableds en dis = map (isEnabled (reverse en) (reverse dis))
+maskEnableds :: Bool -> [Int] -> [Int] -> [Int] -> [Bool]
+maskEnableds state eabl dabl xs
+  | state && null dabl = replicate (length xs) True
+  | not state && null eabl = replicate (length xs) False
+  | otherwise = let i = if state then head dabl else head eabl
+                    s = length $ takeWhile (<i) xs
+                    rest = maskEnableds (not state) (dropWhile (<=i) eabl) (dropWhile (<=i) dabl) (drop s xs)
+                    in
+                        if state
+                            then replicate s True ++ rest
+                            else replicate s False ++ rest
 
 filterByMask :: [Bool] -> [b] -> [b]
 filterByMask mask xs = map snd . filter fst $ zip mask xs
@@ -47,5 +51,5 @@ getOperands x = map int $ fth (x =~ mulOperation :: (String, String, String, [St
 main :: IO ()
 main = do
     input <- readFile "2024/03/input.txt"
-    let mask = maskEnableds (doIndecies input) (don'tIndecies input) (mulIndecies input)
+    let mask = maskEnableds True (doIndecies input) (don'tIndecies input) (mulIndecies input)
     print $ sum . map (product . getOperands) . filterByMask mask . extractOperations $ input
