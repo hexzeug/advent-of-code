@@ -2,6 +2,7 @@ from pathlib import Path
 from datetime import datetime
 import sys
 import shutil
+import os
 
 YEAR = "2025"
 BASE = Path(YEAR)
@@ -58,6 +59,8 @@ if f'name = "{day_str}_part1"' in cargo_text:
 else:
     CARGO.write_text(cargo_text.rstrip() + "\n" + bin_block)
     print("Updated Cargo.toml")
+
+os.system(f"python3 fetch_input.py --day {day_str}")
 
 print(f"\n✅ Day {day_str} is ready!")
 print(f"Run with: cargo run --bin {day_str}_part1")
