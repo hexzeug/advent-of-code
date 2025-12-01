@@ -1,3 +1,18 @@
 fn main() {
-    println!("Hello World!")
+    let mut d= 50;
+    let mut c = 0;
+    let mut input = std::fs::read_to_string("2025/01/input.txt").unwrap();
+    input = input.replace("R", "").replace("L", "-");
+    for line in input.lines() {
+        let x: i32 = line.parse().unwrap();
+        let s = if x > 0 {1} else {-1};
+        for _ in 0..(x.abs()) {
+            d += s;
+            d %= 100;
+            if d == 0 {
+                c += 1;
+            }
+        }
+    }
+    println!("{c}");
 }
