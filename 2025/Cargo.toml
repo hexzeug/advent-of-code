@@ -28,3 +28,11 @@ path = "03/part1.rs"
 [[bin]]
 name = "03_part2"
 path = "03/part2.rs"
+
+[[bin]]
+name = "04_part1"
+path = "04/part1.rs"
+
+[[bin]]
+name = "04_part2"
+path = "04/part2.rs"
