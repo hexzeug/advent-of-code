@@ -8,6 +8,7 @@ geo = "0.32.0"
 itertools = "0.14.0"
 petgraph = "0.8.3"
 priority-queue = "2.7.0"
+rayon = "1.11.0"
 
 [[bin]]
 name = "01_part1"
