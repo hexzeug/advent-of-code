@@ -1,9 +1,7 @@
-use std::{collections::{VecDeque}, iter::zip};
-
 use itertools::{Itertools};
-use rayon::prelude::*;
+use good_lp::{Expression, ProblemVariables, Solution, SolverModel, default_solver, variable};
 
-fn parse_line(line: &str) -> (Vec<u8>, Vec<Vec<u8>>) {
+fn parse_line(line: &str) -> (Vec<i32>, Vec<Vec<i32>>) {
     fn unwrap(s: &str) -> &str {
         s.get(1..s.len()-1).unwrap()
     }
@@ -32,42 +30,51 @@ fn parse_line(line: &str) -> (Vec<u8>, Vec<Vec<u8>>) {
     return (target, buttons);
 }
 
-fn bfs((target, edges): (Vec<u8>, Vec<Vec<u8>>)) -> u64 {
-    let n = target.len();
-    let m = edges.len();
-    let mut found = false;
-    let mut dist = 0;
-    let mut queue = VecDeque::new();
-    queue.push_back((0, vec![0; n], 0));
-    'bfs: while let Some((ei, u, d)) = queue.pop_front() {
-        // if ei + 1 == m {
-        //     if zip(edges[ei].iter(), u.iter()).any(|(e, u)| *e == 0 && *u != 1) {
-        //         continue;
-        //     }
-        //     let mut iter = u.iter().copied().filter(|u| *u == 1);
-        //     let first = iter.next().unwrap();
-        //     if iter.any(|u| u != first) {
-        //         continue;
-        //     }
-        //     found = true;
-        //     dist = d + (first as u64) + 1;
-        //     break;
-        // }
-        for (ei, e) in edges.iter().enumerate().skip(ei) {
-            let v = zip(u.iter(), e.iter()).map(|(u, e)| u + e).collect_vec();
-            if zip(v.iter(), target.iter()).any(|(v, t)| v > t) {
-                continue;
-            }
-            if v == target {
-                found = true;
-                dist = d + 1;
-                break 'bfs;
-            }
-            queue.push_back((ei, v, d + 1));
-        }
-    };
-    if !found { panic!("unreachable") }
-    return dist;
+fn solve(
+    (target_vector,
+    source_vectors):
+    (Vec<i32>,
+    Vec<Vec<i32>>),
+) -> i32 {
+    let m = source_vectors.len();
+    let mut vars = ProblemVariables::new();
+    let a_vars: Vec<_> = (0..m)
+        .map(|i| {
+            vars.add(
+                variable()
+                    .integer()
+                    .min(0)
+                    .name(format!("a_{}", i)),
+            )
+        })
+        .collect();
+
+    let objective_expression: Expression = a_vars.iter().sum();
+    let mut problem = vars.minimise(objective_expression.clone()).using(default_solver);
+
+    let n = target_vector.len();
+    
+    if source_vectors.iter().any(|v| v.len() != n) {
+        panic!("Source vectors must have the same dimension as the target vector.");
+    }
+    
+    for j in 0..n {
+        let lhs: Expression = a_vars
+            .iter()
+            .enumerate()
+            .map(|(i, &a_i)| {
+                let v_ij = source_vectors[i][j] as f64;
+                a_i * v_ij
+            })
+            .sum();
+        let t_j = target_vector[j] as f64;
+        
+        problem = problem.with(
+            lhs.eq(t_j)
+        );
+    }
+    let solution = problem.solve().unwrap();
+    solution.eval(objective_expression) as i32
 }
 
 fn main() {
@@ -78,12 +85,9 @@ fn main() {
         std::fs::read_to_string(name.to_owned() + "input.txt").unwrap()
     };
     let result = input
-        .lines()    
-        .par_bridge()
+        .lines()
         .map(parse_line)
-        .inspect(|x| println!("{x:?}"))
-        .map(bfs)
-        .inspect(|x| println!("{x:?}"))
-        .sum::<u64>();
-    println!("{result}");
+        .map(solve)
+        .sum::<i32>();
+    println!("{result:?}");
 }
