@@ -1,27 +1,14 @@
-use std::fmt::Display;
+use std::iter::zip;
 
 use itertools::Itertools;
-
-fn debug_print_matrix<T: Display>(matrix: &Vec<Vec<T>>) {
-    for row in matrix {
-        for cell in row {
-            print!("{} ", cell);
-        }
-        println!();
-    }
-}
+use good_lp::*;
 
 fn build_constraints(pieces: &Vec<Piece>, width: usize, height: usize, target: &Vec<i8>) -> Vec<Vec<i8>> {
     assert!(pieces.len() == target.len());
-
-    // debug
-    let (pieces, target): (Vec<Piece>, Vec<i8>) = std::iter::zip(pieces, target).filter(|(_, t)| **t != 0).unzip();
-
     let n = pieces.len();
     let n_place_pos = (width - PIECE_SIZE + 1) * (height - PIECE_SIZE + 1);
     let n_vars = n_place_pos * pieces.iter().map(|p| p.n_perms).sum::<usize>();
     let mut constraints = vec![vec![0i8; n_vars + 1]; (width * height) + n];
-    println!("n_vars: {n_vars}");
 
     // coefficients for usage constraints
     let mut var = 0;
@@ -75,6 +62,31 @@ fn build_constraints(pieces: &Vec<Piece>, width: usize, height: usize, target: &
     constraints
 }
 
+fn solve(constraints: &Vec<Vec<i8>>) -> usize {
+    let n_vars = constraints[0].len() - 1;
+
+    let mut problem_vars = ProblemVariables::new();
+    let vars = (0..n_vars)
+        .map(|_| {
+            problem_vars.add(variable().binary())
+        })
+        .collect_vec();
+
+    let z = vars.iter().sum::<Expression>();
+    let problem = problem_vars
+        .maximise(&z)
+        .using(default_solver)
+        .with_all(constraints.iter().map(|constr| {
+            zip(vars.iter(), constr.iter())
+                .filter_map(|(x, c)| {
+                    if *c == 1 { Some(x) } else { None }
+                })
+                .sum::<Expression>().leq(-*constr.last().unwrap())
+        }));
+    let solution = problem.solve().ok().unwrap();
+    solution.eval(&z) as usize
+}
+
 fn main() {
     let input = {
         let mut name = file!();
@@ -109,19 +121,27 @@ fn main() {
     let result = problem_desc.lines().map(|desc| {
         let (size_desc, vec_desc) = desc.split_once(": ").unwrap();
         let (width_desc, height_desc) = size_desc.split_once("x").unwrap();
+        let width = width_desc.parse().unwrap();
+        let height = height_desc.parse().unwrap();
         let vec = vec_desc
             .split_whitespace()
             .map(str::parse)
             .map(Result::unwrap)
             .collect_vec();
-        let constraints = build_constraints(
-            &pieces,
-            width_desc.parse().unwrap(),
-            height_desc.parse().unwrap(),
-            &vec
-        );
-        debug_print_matrix(&constraints);
-        0
+        let required = vec.iter().map(|&x| x as usize).sum::<usize>();
+
+        if required * PIECE_SIZE * PIECE_SIZE <= width * height {
+            return 1;
+        }
+
+        let piece_area = zip(pieces.iter(), vec.iter()).map(|(p, c)| p.area() * (*c as usize)).sum::<usize>();
+        if piece_area > width * height {
+            return 0;
+        }
+
+        let constraints = build_constraints(&pieces, width, height, &vec);
+        let solution = solve(&constraints);
+        (solution == required) as usize
     }).sum::<usize>();
     println!("{}", result);
 }
@@ -142,6 +162,13 @@ impl Piece {
     fn insert(&mut self, perm: PiecePermutation) {
         self.perms[self.n_perms] = perm;
         self.n_perms += 1;
+    }
+
+    fn area(&self) -> usize {
+        if self.n_perms == 0 {
+            return 0;
+        }
+        self.perms[0].grid.iter().flatten().filter(|x| **x).count()
     }
 }
 
