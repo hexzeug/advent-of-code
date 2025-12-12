@@ -102,7 +102,3 @@ path = "11/part2.rs"
 [[bin]]
 name = "12_part1"
 path = "12/part1.rs"
-
-[[bin]]
-name = "12_part2"
-path = "12/part2.rs"
